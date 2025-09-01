@@ -1,0 +1,57 @@
+{
+  "name": "VoxMind",
+  "version": "1.0.0",
+  "description": "VoxMind - Voice-Enabled AI Agent System with Integrated Memory",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun run src/index.ts --verbose",
+    "interactive": "bun run src/index.ts --interactive --text",
+    "interactive:audio": "bun run src/index.ts --interactive --audio",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "build": "bun build src/index.ts --outdir ./dist --target node",
+    "lint": "bun run eslint src/**/*.ts",
+    "check": "bun run tsc --noEmit"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "voice-ai",
+    "speech-processing",
+    "ai-assistant",
+    "graphrag",
+    "memory-system",
+    "voice-mind",
+    "agentic-ai"
+  ],
+  "author": "Agentic Systems",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "cheerio": "^1.1.2",
+    "puppeteer": "^24.17.1",
+    "local-stt-tts": "link:local-stt-tts",
+    "agentic-memory": "link:agentic-memory"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/bun": "latest",
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "msw": "^2.3.0",
+    "@mswjs/interceptors": "^0.25.16",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^6.3.4"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
