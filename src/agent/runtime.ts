@@ -15,7 +15,7 @@
 
 
 import { generateText, generateEmbeddings } from 'local-stt-tts';
-import { createMemoryInstance, addMemory, queryMemory, createClusters, findRelatedClusters, getContextualMemories } from '../bindings/memory';
+import { createMemoryInstance, addMemory, queryMemory, createClusters, findRelatedClusters, getContextualMemories, getDualGraphStats, MemoryInstance } from '../bindings/memory';
 import { transcribeFromAudio, textToSpeech } from '../bindings/speech';
 import { getAllToolCapabilities, getAllTools, TOOL_EXECUTORS } from '../tools/index';
 import type {
@@ -25,7 +25,6 @@ import type {
   AgentMetrics,
   AgentState,
   AgentCapability,
-  CapabilityResult,
   ConversationMessage,
   ReasoningStep,
   GraphContext
@@ -43,7 +42,7 @@ import { MetricsTracker } from './metrics-tracker';
  */
 export class AgentRuntime {
   private config: AgentConfig;
-  private memory: any;
+  private memory: MemoryInstance | null = null;
   private capabilities: Map<string, AgentCapability> = new Map();
   private toolExecutors: Map<string, (args: any) => Promise<any>> = new Map();
   private workingMemory: Map<string, any> = new Map();
@@ -63,11 +62,14 @@ export class AgentRuntime {
     this.registerCoreCapabilities();
   }
 
+
   /**
    * Initialize clustering system
    */
   private async initializeClustering(): Promise<void> {
     if (!this.clusteringEnabled) return;
+    this.ensureInitialized();
+    if (!this.memory) return;
 
     try {
       console.log('🔍 Initializing clustering system...');
@@ -93,8 +95,10 @@ export class AgentRuntime {
   /**
    * Update clustering periodically
    */
-  private async updateClusteringIfNeeded(): Promise<void> {
+  async updateClusteringIfNeeded(): Promise<void> {
     if (!this.clusteringEnabled) return;
+    this.ensureInitialized();
+    if (!this.memory) return;
 
     const timeSinceLastUpdate = Date.now() - this.lastClusteringUpdate.getTime();
     const updateInterval = 5 * 60 * 1000; // 5 minutes
@@ -284,6 +288,18 @@ export class AgentRuntime {
       console.warn('Failed to generate query embeddings:', error);
       // Continue without embeddings
     }
+    this.ensureInitialized();
+    if (!this.memory) {
+      return {
+        id: this.generateId(),
+        type: 'error',
+        description: 'Memory instance is not initialized',
+        input: content,
+        output: null,
+        confidence: 0,
+        timestamp: new Date()
+      };
+    }
 
     // Query memory for related information
     const memoryResults = await queryMemory(this.memory, content, context, {
@@ -367,7 +383,7 @@ export class AgentRuntime {
     }
 
     return await executor(args);
-  }  
+  }
 
   /**
    * Generate final response using LLM with tool calling loop
@@ -402,7 +418,7 @@ export class AgentRuntime {
       if (llmResponse.toolCalls && llmResponse.toolCalls.length > 0) {
         for (const toolCall of llmResponse.toolCalls) {
           try {
-            console.log(`🔧 Executing tool: ${toolCall.tool ? (toolCall.tool as any).name  : toolCall.tool}`);
+            console.log(`🔧 Executing tool: ${toolCall.tool ? (toolCall.tool as any).name : toolCall.tool}`);
             const result = await this.executeToolCall(toolCall);
             messages.push({
               role: 'tool',
@@ -449,15 +465,29 @@ export class AgentRuntime {
       this.capabilities.set(capability.id, capability);
     });
 
+
     // Query memory capability
     this.capabilities.set('query_memory', {
       id: 'query_memory',
       name: 'Query Memory',
-      description: 'Search the knowledge base for relevant information',
+      description: 'Search the knowledge base for relevant information using dual graph architecture',
       execute: async (params: { content: string }, context: AgentContext) => {
+        this.ensureInitialized();
+        if (!this.memory) return {
+          success: false,
+          error: 'Memory not initialized',
+          metadata: {
+            executionTime: 0,
+            confidence: 0,
+            source: 'memory_system'
+          }
+        };
+
         const result = await queryMemory(this.memory, params.content, context, {
           maxResults: 10,
-          maxDepth: 2
+          maxDepth: 2,
+          useDualGraph: true, // Use dual graph querying
+          includeMetadata: true
         });
 
         return {
@@ -466,7 +496,7 @@ export class AgentRuntime {
           metadata: {
             executionTime: 100,
             confidence: 0.9,
-            source: 'memory_system'
+            source: 'dual_graph_memory_system'
           }
         };
       }
@@ -478,6 +508,16 @@ export class AgentRuntime {
       name: 'Create Semantic Clusters',
       description: 'Group semantically similar memories into clusters',
       execute: async (params: any, context: AgentContext) => {
+        this.ensureInitialized();
+        if (!this.memory) return {
+          success: false,
+          error: 'Memory not initialized',
+          metadata: {
+            executionTime: 0,
+            confidence: 0,
+            source: 'memory_system'
+          }
+        };
         const clusters = await createClusters(this.memory, {
           enabled: true,
           similarityThreshold: 0.7,
@@ -501,16 +541,60 @@ export class AgentRuntime {
       }
     });
 
+    // Dual graph statistics capability
+    this.capabilities.set('get_dual_graph_stats', {
+      id: 'get_dual_graph_stats',
+      name: 'Get Dual Graph Statistics',
+      description: 'Get comprehensive statistics about the dual graph memory system',
+      execute: async (params: any, context: AgentContext) => {
+        this.ensureInitialized();
+        if (!this.memory) return {
+          success: false,
+          error: 'Memory not initialized',
+          metadata: {
+            executionTime: 0,
+            confidence: 0,
+            source: 'memory_system'
+          }
+        };
+
+        const stats = await getDualGraphStats(this.memory);
+
+        return {
+          success: true,
+          data: stats,
+          metadata: {
+            executionTime: 50,
+            confidence: 1.0,
+            source: 'dual_graph_memory_system'
+          }
+        };
+      }
+    });
+
     // Find related clusters capability
     this.capabilities.set('find_related_clusters', {
       id: 'find_related_clusters',
       name: 'Find Related Clusters',
       description: 'Find memory clusters related to a query',
       execute: async (params: { query: string }, context: AgentContext) => {
+        this.ensureInitialized();
+        if (!this.memory) return {
+          success: false,
+          error: 'Memory not initialized',
+          metadata: {
+            executionTime: 0,
+            confidence: 0,
+            source: 'memory_system'
+          }
+        };
+
         if (this.clusters.length === 0) {
           // Create clusters if none exist
           await this.capabilities.get('create_clusters')!.execute({}, context);
         }
+
+
 
         // Generate embedding for the query
         const embeddingResult = await generateEmbeddings({
@@ -544,6 +628,17 @@ export class AgentRuntime {
       name: 'Get Contextual Memories',
       description: 'Retrieve memories relevant to current conversation',
       execute: async (params: any, context: AgentContext) => {
+        this.ensureInitialized();
+        if (!this.memory) return {
+          success: false,
+          error: 'Memory not initialized',
+          metadata: {
+            executionTime: 0,
+            confidence: 0,
+            source: 'memory_system'
+          }
+        };
+
         const conversationHistory = context.conversationHistory.slice(-5); // Last 5 messages
         const contextualMemories = await getContextualMemories(
           this.memory,
@@ -569,6 +664,16 @@ export class AgentRuntime {
       name: 'Analyze Entities',
       description: 'Extract and analyze entities from text',
       execute: async (params: { content: string }, context: AgentContext) => {
+        this.ensureInitialized();
+        if (!this.memory) return {
+          success: false,
+          error: 'Memory not initialized',
+          metadata: {
+            executionTime: 0,
+            confidence: 0,
+            source: 'memory_system'
+          }
+        };
         const result = await queryMemory(this.memory, params.content, context, {
           maxResults: 5,
           maxDepth: 1
@@ -738,9 +843,9 @@ Respond naturally and helpfully to the user's current message.`;
     if (this.isInitialized) return;
 
     try {
-      console.log('🤖 Initializing Agent Runtime...');
+      console.log('🤖 Initializing Agent Runtime with Dual Graph Memory...');
 
-      // Initialize memory system
+      // Initialize memory system with dual graph configuration
       this.memory = await createMemoryInstance({
         graph: {
           maxNodes: 10000,
@@ -756,11 +861,43 @@ Respond naturally and helpfully to the user's current message.`;
           maxMemoryNodes: 5000,
           evictionStrategy: 'lru',
           persistenceEnabled: false
+        },
+        dualGraph: {
+          enabled: true, // Enable dual graph architecture
+          lexical: {
+            minChunkSize: 50,
+            maxChunkSize: 1000,
+            enableSentenceChunking: true,
+            enableParagraphChunking: true,
+            enableEmbeddings: true,
+            enableLexicalRelations: true
+          },
+          domain: {
+            enableHierarchies: true,
+            enableTaxonomies: true,
+            enableOrganizationalStructures: true,
+            enableConceptClustering: true,
+            minHierarchyConfidence: 0.7
+          },
+          linking: {
+            enableEntityMentions: true,
+            enableEvidenceSupport: true,
+            enableSemanticGrounding: true,
+            enableTemporalAlignment: true,
+            minLinkConfidence: 0.6,
+            maxLinksPerEntity: 10
+          },
+          processing: {
+            enableParallelProcessing: false,
+            enableProgressTracking: true,
+            enableDetailedLogging: false
+          }
         }
       });
 
+
       this.isInitialized = true;
-      console.log('✅ Agent Runtime initialized successfully');
+      console.log('✅ Agent Runtime initialized successfully with Dual Graph Memory');
 
       // Initialize clustering
       await this.initializeClustering();
@@ -785,13 +922,16 @@ Respond naturally and helpfully to the user's current message.`;
   /**
    * Helper methods
    */
-  private async ensureInitialized(): Promise<void> {
+  private async ensureInitialized(_?: unknown): Promise<void> {
     if (!this.isInitialized) {
       await this.initialize();
     }
   }
 
   private async storeInMemory(content: string, context: GraphContext): Promise<void> {
+    this.ensureInitialized();
+    if (!this.memory) return;
+
     try {
       // Generate embeddings for the content
       const embeddingResult = await generateEmbeddings({
@@ -800,15 +940,20 @@ Respond naturally and helpfully to the user's current message.`;
         input: content
       });
 
-      // Store in memory with embeddings
+      // Store in memory with dual graph extraction
       await addMemory(this.memory, content, context, {
-        embeddings: embeddingResult.embedding
+        embeddings: embeddingResult.embedding,
+        useDualGraph: true, // Use dual graph architecture
+        enableProgressTracking: false // Disable for performance
       });
     } catch (error) {
       console.error('Error storing in memory:', error);
       // Fallback to text-only storage if embedding generation fails
       try {
-        await addMemory(this.memory, content, context);
+        await addMemory(this.memory, content, context, {
+          useDualGraph: true, // Still use dual graph even without embeddings
+          enableProgressTracking: false
+        });
       } catch (fallbackError) {
         console.error('Fallback memory storage also failed:', fallbackError);
       }
@@ -906,12 +1051,12 @@ Respond naturally and helpfully to the user's current message.`;
   private calculateOverallConfidence(steps: ReasoningStep[]): number {
     if (steps.length === 0) return 0;
 
-    const weights = { observation: 0.2, analysis: 0.3, planning: 0.2, execution: 0.2, reflection: 0.1 };
+    const weights = { observation: 0.2, analysis: 0.3, planning: 0.2, execution: 0.2, reflection: 0.1, error: 0 };
     let weightedSum = 0;
     let totalWeight = 0;
 
     for (const step of steps) {
-      const weight = weights[step.type] || 0.2;
+      const weight = weights[step.type as keyof typeof weights] || 0.2;
       weightedSum += step.confidence * weight;
       totalWeight += weight;
     }

@@ -156,7 +156,7 @@ export interface ReasoningStep {
   /** Step identifier */
   id: string;
   /** Step type */
-  type: 'observation' | 'analysis' | 'planning' | 'execution' | 'reflection';
+  type: 'observation' | 'analysis' | 'planning' | 'execution' | 'reflection' | 'error';
   /** Step description */
   description: string;
   /** Input data for this step */

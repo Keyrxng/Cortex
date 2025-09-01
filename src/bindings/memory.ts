@@ -1,17 +1,23 @@
 /**
  * Memory System Bindings for Agentic Agent
  *
- * Provides a clean interface to the agentic-memory system following
+ * Provides a clean interface to the agentic-memory dual graph system following
  * the same architectural patterns and error handling conventions.
  */
 
-import { AgentGraphMemory } from "agentic-memory";
+import {
+  AgentGraphMemory,
+  type DualGraphQuery,
+  type DualGraphQueryResult
+} from "agentic-memory";
 import type { GraphContext } from '../types.js';
+import type { MemoryCluster } from 'agentic-memory/src/utils/clustering-engine.js';
+import type { GraphNode } from 'agentic-memory/src/core/types.js';
 
-export type MemoryInstance = any;
+export type MemoryInstance = AgentGraphMemory;
 
 /**
- * Configuration for memory system
+ * Configuration for memory system with dual graph support
  */
 export interface MemoryConfig {
   graph?: {
@@ -29,6 +35,38 @@ export interface MemoryConfig {
     evictionStrategy?: 'lru' | 'lfu' | 'temporal';
     persistenceEnabled?: boolean;
   };
+  /** Dual graph configuration */
+  dualGraph?: {
+    enabled?: boolean;
+    lexical?: {
+      minChunkSize?: number;
+      maxChunkSize?: number;
+      enableSentenceChunking?: boolean;
+      enableParagraphChunking?: boolean;
+      enableEmbeddings?: boolean;
+      enableLexicalRelations?: boolean;
+    };
+    domain?: {
+      enableHierarchies?: boolean;
+      enableTaxonomies?: boolean;
+      enableOrganizationalStructures?: boolean;
+      enableConceptClustering?: boolean;
+      minHierarchyConfidence?: number;
+    };
+    linking?: {
+      enableEntityMentions?: boolean;
+      enableEvidenceSupport?: boolean;
+      enableSemanticGrounding?: boolean;
+      enableTemporalAlignment?: boolean;
+      minLinkConfidence?: number;
+      maxLinksPerEntity?: number;
+    };
+    processing?: {
+      enableParallelProcessing?: boolean;
+      enableProgressTracking?: boolean;
+      enableDetailedLogging?: boolean;
+    };
+  };
 }
 
 /**
@@ -43,13 +81,13 @@ export interface ClusteringConfig {
 }
 
 /**
- * Create a memory instance with proper configuration
+ * Create a memory instance with dual graph configuration
  */
 export async function createMemoryInstance(config: MemoryConfig = {}): Promise<MemoryInstance> {
   try {
-    console.log('🧠 Initializing memory system...');
+    console.log('🧠 Initializing dual graph memory system...');
 
-    // Default configuration following agentic-memory patterns
+    // Default configuration following agentic-memory dual graph patterns
     const defaultConfig = {
       graph: {
         maxNodes: 10000,
@@ -68,29 +106,84 @@ export async function createMemoryInstance(config: MemoryConfig = {}): Promise<M
         evictionStrategy: 'lru' as const,
         persistenceEnabled: false,
         ...config.memory
+      },
+      dualGraph: {
+        enabled: config.dualGraph?.enabled ?? true, // Enable dual graph by default
+        lexical: {
+          minChunkSize: 50,
+          maxChunkSize: 1000,
+          enableSentenceChunking: true,
+          enableParagraphChunking: true,
+          enableEmbeddings: true,
+          enableLexicalRelations: true,
+          ...config.dualGraph?.lexical
+        },
+        domain: {
+          enableHierarchies: true,
+          enableTaxonomies: true,
+          enableOrganizationalStructures: true,
+          enableConceptClustering: true,
+          minHierarchyConfidence: 0.7,
+          ...config.dualGraph?.domain
+        },
+        linking: {
+          enableEntityMentions: true,
+          enableEvidenceSupport: true,
+          enableSemanticGrounding: true,
+          enableTemporalAlignment: true,
+          minLinkConfidence: 0.6,
+          maxLinksPerEntity: 10,
+          ...config.dualGraph?.linking
+        },
+        processing: {
+          enableParallelProcessing: false,
+          enableProgressTracking: true,
+          enableDetailedLogging: false,
+          ...config.dualGraph?.processing
+        }
       }
     };
 
     const memory = new AgentGraphMemory(defaultConfig);
     await memory.initialize();
 
-    console.log('✅ Memory system initialized successfully');
+    // Log dual graph statistics
+    const dualGraphStats = await memory.getIntegratedStats();
+    console.log('✅ Dual graph memory system initialized successfully');
+    console.log(`   - Dual graph enabled: ${defaultConfig.dualGraph.enabled}`);
+    console.log(`   - Lexical graphs: ${dualGraphStats.dualGraph.lexicalGraphs}`);
+    console.log(`   - Domain graphs: ${dualGraphStats.dualGraph.domainGraphs}`);
+    console.log(`   - Cross-graph links: ${dualGraphStats.dualGraph.crossGraphLinks}`);
+    console.log(`   - Total relationships: ${dualGraphStats.dualGraph.totalRelationships}`);
+    console.log(`   - Total entities: ${dualGraphStats.dualGraph.totalEntities}`);
+    console.log(`   - Total chunks: ${dualGraphStats.dualGraph.totalChunks}`);
+
+    console.log(`   - Clustering:`, dualGraphStats.clustering);
+    console.log(`   - Graph:`, dualGraphStats.graph);
+    console.log(`   - Indexing:`, dualGraphStats.indexing);
+    console.log(`   - Memory:`, dualGraphStats.memory);
+    console.log(`   - System:`, dualGraphStats.system);
+
     return memory;
 
   } catch (error) {
-    console.error('❌ Failed to create memory instance:', error);
-    throw new Error(`Memory initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('❌ Failed to create dual graph memory instance:', error);
+    throw new Error(`Dual graph memory initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 /**
- * Add memory content to the knowledge graph
+ * Add memory content using dual graph architecture
  */
 export async function addMemory(
   memory: MemoryInstance,
   content: string,
   context: GraphContext,
-  options: { embeddings?: number[] } = {}
+  options: {
+    embeddings?: number[];
+    useDualGraph?: boolean;
+    enableProgressTracking?: boolean;
+  } = {}
 ): Promise<any> {
   try {
     if (!memory) {
@@ -101,11 +194,29 @@ export async function addMemory(
       throw new Error('Content must be a non-empty string');
     }
 
-    console.log(`📝 Adding memory: "${content.substring(0, 100)}${content.length > 100 ? '...' : ''}"`);
+    console.log(`📝 Adding memory with dual graph: "${content.substring(0, 100)}${content.length > 100 ? '...' : ''}"`);
 
-    const result = await memory.addMemory(content, context, options);
+    // Ensure relevantEntities is always an array
+    const safeContext = {
+      ...context,
+      relevantEntities: context.relevantEntities || [],
+      source: context.source || 'conversation'
+    };
+
+    const result = await memory.addMemory(content, safeContext, {
+      useDualGraph: options.useDualGraph ?? true, // Use dual graph by default
+      enableProgressTracking: options.enableProgressTracking ?? false
+    });
 
     console.log(`✅ Memory added successfully - ${result.metadata?.entitiesExtracted || 0} entities, ${result.metadata?.relationshipsExtracted || 0} relationships`);
+
+    // Log dual graph results if available
+    if (result.dualGraphResult) {
+      console.log(`   🧠 Dual graph results:`);
+      console.log(`     - Lexical chunks: ${result.dualGraphResult.lexicalGraph.textChunks.size}`);
+      console.log(`     - Domain entities: ${result.dualGraphResult.domainGraph.entities.size}`);
+      console.log(`     - Cross-graph links: ${result.dualGraphResult.crossLinks.length}`);
+    }
 
     return result;
 
@@ -116,17 +227,20 @@ export async function addMemory(
 }
 
 /**
- * Query memory for relevant information
+ * Query memory using dual graph architecture
  */
 export async function queryMemory(
   memory: MemoryInstance,
-  query: string,
+  query: string | DualGraphQuery,
   context: GraphContext,
   options: {
     maxResults?: number;
     maxDepth?: number;
     includeRelated?: boolean;
     queryEmbedding?: Float32Array;
+    useDualGraph?: boolean;
+    limit?: number;
+    includeMetadata?: boolean;
   } = {}
 ): Promise<any> {
   try {
@@ -134,15 +248,35 @@ export async function queryMemory(
       throw new Error('Memory instance not provided');
     }
 
-    if (!query || typeof query !== 'string') {
-      throw new Error('Query must be a non-empty string');
+    if (!query || (typeof query === 'string' && query.trim() === '')) {
+      throw new Error('Query must be a non-empty string or valid dual graph query');
     }
 
-    console.log(`🔍 Querying memory: "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}"${options.queryEmbedding ? ' (with semantic search)' : ''}`);
+    const queryText = typeof query === 'string' ? query : JSON.stringify(query);
+    console.log(`🔍 Querying memory with dual graph: "${queryText.substring(0, 100)}${queryText.length > 100 ? '...' : ''}"${options.queryEmbedding ? ' (with semantic search)' : ''}`);
 
-    const result = await memory.queryMemory(query, context, options);
+    // Ensure relevantEntities is always an array
+    const safeContext = {
+      ...context,
+      relevantEntities: context.relevantEntities || [],
+      source: context.source || 'conversation'
+    };
+
+    const result = await memory.queryMemory(query, safeContext, {
+      useDualGraph: options.useDualGraph ?? true, // Use dual graph by default
+      limit: options.limit ?? options.maxResults,
+      includeMetadata: options.includeMetadata ?? true
+    });
 
     console.log(`✅ Query completed - found ${result.entities?.length || 0} entities in ${result.metadata?.queryTime || 0}ms`);
+
+    // Log dual graph results if available
+    if (result.dualGraphResults) {
+      console.log(`   🧠 Dual graph query results:`);
+      console.log(`     - Lexical chunks: ${result.dualGraphResults.lexicalResults.chunks.length}`);
+      console.log(`     - Domain entities: ${result.dualGraphResults.domainResults.entities.length}`);
+      console.log(`     - Cross-graph links: ${result.dualGraphResults.crossGraphResults.links.length}`);
+    }
 
     return result;
 
@@ -153,116 +287,77 @@ export async function queryMemory(
 }
 
 /**
- * Create semantic clusters from memory nodes
+ * Advanced dual graph querying
  */
-export async function createClusters(
+export async function queryDualGraph(
   memory: MemoryInstance,
-  config: ClusteringConfig = {
-    enabled: true,
-    similarityThreshold: 0.7,
-    maxClusters: 10,
-    minClusterSize: 2,
-    clusteringAlgorithm: 'kmeans'
-  }
-): Promise<any> {
+  dualGraphQuery: DualGraphQuery,
+  context: GraphContext,
+  options: {
+    limit?: number;
+    includeMetadata?: boolean;
+  } = {}
+): Promise<DualGraphQueryResult> {
   try {
     if (!memory) {
       throw new Error('Memory instance not provided');
     }
 
-    console.log(`🔍 Creating semantic clusters with ${config.clusteringAlgorithm} algorithm...`);
+    console.log(`🔍 Advanced dual graph querying...`);
 
-    const clusters = await memory.createClusters(config);
+    // Ensure relevantEntities is always an array
+    const safeContext = {
+      ...context,
+      relevantEntities: context.relevantEntities || [],
+      source: context.source || 'conversation'
+    };
 
-    console.log(`✅ Created ${clusters.length} clusters`);
+    const result = await memory.queryMemory(dualGraphQuery, safeContext, {
+      useDualGraph: true,
+      ...options
+    });
 
-    return clusters;
-
-  } catch (error) {
-    console.error('❌ Failed to create clusters:', error);
-    throw new Error(`Cluster creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-/**
- * Find clusters related to a query
- */
-export async function findRelatedClusters(
-  memory: MemoryInstance,
-  queryEmbedding: Float32Array,
-  clusters: any[],
-  maxResults: number = 5
-): Promise<any[]> {
-  try {
-    if (!memory) {
-      throw new Error('Memory instance not provided');
+    if (!result.dualGraphResults) {
+      throw new Error('Dual graph results not available');
     }
 
-    console.log(`🔍 Finding related clusters for query...`);
-
-    const relatedClusters = await memory.findRelatedClusters(queryEmbedding, clusters, maxResults);
-
-    console.log(`✅ Found ${relatedClusters.length} related clusters`);
-
-    return relatedClusters;
+    console.log(`✅ Dual graph query completed successfully`);
+    return result.dualGraphResults;
 
   } catch (error) {
-    console.error('❌ Failed to find related clusters:', error);
-    throw new Error(`Related cluster search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('❌ Failed to query dual graph:', error);
+    throw new Error(`Dual graph query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 /**
- * Get contextual memories based on conversation history
+ * Get dual graph statistics
  */
-export async function getContextualMemories(
-  memory: MemoryInstance,
-  conversationHistory: Array<{ role: string; content: string }>,
-  maxMemories: number = 5
-): Promise<any[]> {
+export async function getDualGraphStats(memory: MemoryInstance): Promise<any> {
   try {
     if (!memory) {
       throw new Error('Memory instance not provided');
     }
 
-    console.log(`🎯 Finding contextual memories for conversation...`);
+    // Log dual graph statistics
+    const dualGraphStats = await memory.getIntegratedStats();
+    console.log(`   - Lexical graphs: ${dualGraphStats.dualGraph.lexicalGraphs}`);
+    console.log(`   - Domain graphs: ${dualGraphStats.dualGraph.domainGraphs}`);
+    console.log(`   - Cross-graph links: ${dualGraphStats.dualGraph.crossGraphLinks}`);
+    console.log(`   - Total relationships: ${dualGraphStats.dualGraph.totalRelationships}`);
+    console.log(`   - Total entities: ${dualGraphStats.dualGraph.totalEntities}`);
+    console.log(`   - Total chunks: ${dualGraphStats.dualGraph.totalChunks}`);
 
-    const contextualMemories = await memory.getContextualMemories(conversationHistory, maxMemories);
+    console.log(`   - Clustering:`, dualGraphStats.clustering);
+    console.log(`   - Graph:`, dualGraphStats.graph);
+    console.log(`   - Indexing:`, dualGraphStats.indexing);
+    console.log(`   - Memory:`, dualGraphStats.memory);
+    console.log(`   - System:`, dualGraphStats.system);
 
-    console.log(`✅ Retrieved ${contextualMemories.length} contextual memories`);
-
-    return contextualMemories;
-
+    return dualGraphStats;
   } catch (error) {
-    console.error('❌ Failed to get contextual memories:', error);
-    throw new Error(`Contextual memory retrieval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-/**
- * Enhanced entity resolution using embeddings
- */
-export async function resolveEntityWithEmbeddings(
-  memory: MemoryInstance,
-  entity: any,
-  candidateEntities: any[]
-): Promise<any> {
-  try {
-    if (!memory) {
-      throw new Error('Memory instance not provided');
-    }
-
-    console.log(`🔍 Resolving entity with embeddings: ${entity.name || entity.id}`);
-
-    const result = await memory.resolveEntityWithEmbeddings(entity, candidateEntities);
-
-    console.log(`✅ Entity resolution completed - ${result.bestMatch ? 'Match found' : 'No match found'}`);
-
-    return result;
-
-  } catch (error) {
-    console.error('❌ Failed to resolve entity with embeddings:', error);
-    throw new Error(`Entity resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('❌ Failed to get dual graph stats:', error);
+    throw new Error(`Dual graph stats retrieval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -275,7 +370,13 @@ export async function getMemoryMetrics(memory: MemoryInstance): Promise<any> {
       throw new Error('Memory instance not provided');
     }
 
-    return await memory.getMetrics();
+    const metrics = await memory.getMemoryStats();
+    const dualGraphStats = memory.getIntegratedStats();
+
+    return {
+      ...metrics,
+      dualGraph: dualGraphStats
+    };
 
   } catch (error) {
     console.error('❌ Failed to get memory metrics:', error);
@@ -292,11 +393,74 @@ export async function clearMemory(memory: MemoryInstance): Promise<void> {
       throw new Error('Memory instance not provided');
     }
 
-    await memory.clear();
+    await memory.clearMemory();
     console.log('🧹 Memory cleared successfully');
 
   } catch (error) {
     console.error('❌ Failed to clear memory:', error);
     throw new Error(`Memory clear failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Create semantic clusters from memory nodes
+ */
+export async function createClusters(
+  memory: MemoryInstance,
+  config: ClusteringConfig
+): Promise<MemoryCluster[]> {
+  try {
+    if (!memory) {
+      throw new Error('Memory instance not provided');
+    }
+
+    return await memory.createClusters(config);
+
+  } catch (error) {
+    console.error('❌ Failed to create clusters:', error);
+    throw new Error(`Cluster creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Find clusters related to a query embedding
+ */
+export function findRelatedClusters(
+  memory: MemoryInstance,
+  queryEmbedding: Float32Array,
+  clusters: MemoryCluster[],
+  maxResults: number = 5
+): MemoryCluster[] {
+  try {
+    if (!memory) {
+      throw new Error('Memory instance not provided');
+    }
+
+    return memory.findRelatedClusters(queryEmbedding, clusters, maxResults);
+
+  } catch (error) {
+    console.error('❌ Failed to find related clusters:', error);
+    throw new Error(`Related cluster search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Get contextual memories based on conversation history
+ */
+export async function getContextualMemories(
+  memory: MemoryInstance,
+  conversationHistory: Array<{ role: string; content: string }>,
+  maxResults: number = 5
+): Promise<GraphNode[]> {
+  try {
+    if (!memory) {
+      throw new Error('Memory instance not provided');
+    }
+
+    return await memory.getContextualMemories(conversationHistory, maxResults);
+
+  } catch (error) {
+    console.error('❌ Failed to get contextual memories:', error);
+    throw new Error(`Contextual memory retrieval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

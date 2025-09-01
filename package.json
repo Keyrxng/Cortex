@@ -12,6 +12,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:dual-graph": "bun run test-dual-graph-integration.ts",
+    "test:cortex": "bun run test-cortex-dual-graph.ts",
     "build": "bun build src/index.ts --outdir ./dist --target node",
     "lint": "bun run eslint src/**/*.ts",
     "check": "bun run tsc --noEmit"
