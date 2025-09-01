@@ -1,10 +1,10 @@
-# VoxMind: Voice-Enabled AI Agent System
+# Cortex: Voice-Enabled AI Agent System
 
 > **⚠️ Research Project Notice**: This is an experimental research project exploring voice-enabled AI agents with integrated memory and reasoning capabilities. It combines two of my other projects (local-stt-tts and agentic-memory)
 
 ## Overview
 
-VoxMind is a TypeScript-based research implementation of a sophisticated voice-enabled AI agent system that combines speech processing, intelligent memory management, and multi-modal reasoning capabilities. This project explores the intersection of voice AI, knowledge graphs, and agentic systems, implementing techniques from recent research breakthroughs.
+Cortex is a TypeScript-based research implementation of a sophisticated voice-enabled AI agent system that combines speech processing, intelligent memory management, and multi-modal reasoning capabilities. This project explores the intersection of voice AI, knowledge graphs, and agentic systems, implementing techniques from recent research breakthroughs.
 
 The system demonstrates advanced AI agent capabilities including:
 - **Voice Interaction**: Speech-to-text and text-to-speech using local models
@@ -23,8 +23,8 @@ The system demonstrates advanced AI agent capabilities including:
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/keyrxng/VoxMind.git
-cd VoxMind
+git clone https://github.com/keyrxng/Cortex.git
+cd Cortex
 
 # Install dependencies
 npm install
@@ -58,7 +58,7 @@ bun run src/index.ts --interactive --audio
 
 ## 🏗️ Architecture
 
-VoxMind is built around several core components that integrate with your existing projects:
+Cortex is built around several core components that integrate with your existing projects:
 
 ### Core Agent Runtime
 - **AgentRuntime**: Main reasoning and planning engine with capability management
@@ -82,7 +82,7 @@ VoxMind is built around several core components that integrate with your existin
 
 ## 🔗 Project Integration
 
-VoxMind is designed as the central orchestrator that brings together your research projects:
+Cortex is designed as the central orchestrator that brings together your research projects:
 
 ### local-stt-tts Integration
 - **Speech Processing**: Uses local Whisper models for transcription

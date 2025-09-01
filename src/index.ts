@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 
 /**
- * VoxMind CLI Entry Point
+ * Cortex CLI Entry Point
  *
- * Provides a command-line interface to the VoxMind AI agent system,
+ * Provides a command-line interface to the Cortex AI agent system,
  * supporting both text and audio input with intelligent processing.
  */
 
@@ -95,7 +95,7 @@ function parseArgs() {
 
 function showHelp() {
   console.log(`
-🤖 VoxMind - Voice-Enabled AI Agent System
+🤖 Cortex - Voice-Enabled AI Agent System
 
 Usage:
   bun run src/index.ts [options]
@@ -124,7 +124,7 @@ In audio interactive mode, press SPACE to start/stop recording, 'quit' to exit.
 }
 
 async function runInteractiveMode(agent: AgentRuntime, inputMode: 'text' | 'audio', verbose: boolean = false) {
-  console.log(`🤖 VoxMind Interactive Mode (${inputMode} input)`);
+  console.log(`🤖 Cortex Interactive Mode (${inputMode} input)`);
   if (inputMode === 'text') {
     console.log('Type your messages below. Type "quit" to exit.\n');
   } else {
@@ -214,7 +214,7 @@ async function main() {
   }
 
   try {
-    console.log('🚀 Starting VoxMind...');
+    console.log('🚀 Starting Cortex...');
 
     // Initialize the agent
     const agent = new AgentRuntime();

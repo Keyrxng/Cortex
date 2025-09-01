@@ -1,7 +1,7 @@
 {
-  "name": "VoxMind",
+  "name": "Cortex",
   "version": "1.0.0",
-  "description": "VoxMind - Voice-Enabled AI Agent System with Integrated Memory",
+  "description": "Cortex - Voice-Enabled AI Agent System with Integrated Memory",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
